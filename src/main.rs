@@ -132,10 +132,15 @@ impl Markov {
 
 #[tokio::main]
 async fn main() -> ! {
-    let inp = std::fs::read_to_string("/home/foo/Downloads/art-of-war-2.txt").unwrap();
     let mut chain = Markov::new(2);
-    let tokens = tokenize(inp);
-    chain.train(&tokens, 1);
+
+    let art_of_war = tokenize(std::fs::read_to_string("art-of-war.txt").unwrap());
+    let heimskringla = tokenize(std::fs::read_to_string("heimskringla.txt").unwrap());
+
+    chain.train(&art_of_war, 12);
+    chain.train(&heimskringla, 1);
+
+    let tokens = art_of_war.iter().chain(heimskringla.iter()).cloned().collect::<Vec<_>>();
     
     let (tx, mut rx) = mpsc::channel::<String>(32);
 
