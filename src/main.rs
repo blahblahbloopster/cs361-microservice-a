@@ -141,7 +141,7 @@ async fn main() -> ! {
 
     tokio::spawn(async move {
         let mut sock = zeromq::RepSocket::new();
-        sock.connect("tcp://127.0.0.1:5555").await.expect("failed to connect to socket");
+        sock.bind("tcp://127.0.0.1:5555").await.expect("failed to connect to socket");
         loop {
             let v = sock.recv().await.unwrap().into_vec().iter().flatten().cloned().collect::<Vec<_>>();
             if v == "generate".as_bytes() {
