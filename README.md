@@ -21,5 +21,6 @@ while True:
 
 ## Diagram
 ![UML sequence diagram](/uml.png)
+
 The microservice includes a separate thread for generating names, which pushes them into a queue continuously.
 
