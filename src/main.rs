@@ -1,6 +1,7 @@
 use std::collections::{HashMap, VecDeque};
-
-use rand::{distr::{weighted::WeightedIndex, Distribution}, rng, seq::IndexedRandom, Rng};
+use rand::{distr::{weighted::WeightedIndex, Distribution}, rng, Rng};
+use tokio::sync::mpsc;
+use zeromq::{Socket, SocketRecv, SocketSend, ZmqMessage};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum State {
@@ -111,7 +112,6 @@ impl Markov {
         for _ in 1..limit {
             let mut trimmed = prev.clone();
             for _ in 0..self.degree {
-                //println!("{i} {trimmed:?}");
                 if let Some(next) = self.mappings.iter().find(|x| x.0.iter().rev().zip(trimmed.iter().rev()).all(|(a, b)| a == b)).map(|(_, b)| b) {
                     let dist = WeightedIndex::new(next.iter().map(|x| x.1)).unwrap();
                     let n = next[dist.sample(&mut r)].0;
@@ -130,18 +130,30 @@ impl Markov {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> ! {
     let inp = std::fs::read_to_string("/home/foo/Downloads/art-of-war-2.txt").unwrap();
     let mut chain = Markov::new(2);
     let tokens = tokenize(inp);
     chain.train(&tokens, 1);
+    
+    let (tx, mut rx) = mpsc::channel::<String>(32);
 
-    for _ in 0..50 {
+    tokio::spawn(async move {
+        let mut sock = zeromq::RepSocket::new();
+        sock.connect("tcp://127.0.0.1:5555").await.expect("failed to connect to socket");
+        loop {
+            let v = sock.recv().await.unwrap().into_vec().iter().flatten().cloned().collect::<Vec<_>>();
+            if v == "generate".as_bytes() {
+                sock.send(rx.recv().await.unwrap().into()).await.unwrap();
+            }
+        }
+    });
+
+    loop {
         let out = chain.infer(3).to_vec();
         if !tokens.chunks(out.len()).any(|x| x == out) {
-            println!("{:?}", out.join(" "))
-        } else {
-            println!("a");
+            tx.send(out.join(" ")).await.unwrap();
         }
     }
 }
